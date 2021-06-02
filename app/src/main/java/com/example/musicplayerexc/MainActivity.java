@@ -29,6 +29,7 @@ import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -274,13 +275,14 @@ public class MainActivity extends AppCompatActivity {
      * Changes the MainActivity image based on which notification was intercepted
      * @param notificationCode The intercepted notification code
      */
-    private void updateView(int notificationCode, String recvSongName, String recvArtistName){
+    private void updateView(int notificationCode, String recvSongName, String recvArtistName, Bitmap cover){
         switch(notificationCode){
             case MyNotificationListenerService.InterceptedNotificationCode.QQ_MUSIC_CODE:
                 interceptedNotificationImageView.setImageResource(R.drawable.ic_qq_music);
                 songName.setText(recvSongName);
                 artistName.setText(recvArtistName);
-                //interceptedNotificationImageView.setImageBitmap(cover);
+
+                interceptedNotificationImageView.setImageBitmap(cover);
                 break;
             case MyNotificationListenerService.InterceptedNotificationCode.OTHER_NOTIFICATIONS_CODE:
                 interceptedNotificationImageView.setImageResource(R.drawable.ic_sick);
@@ -324,12 +326,32 @@ public class MainActivity extends AppCompatActivity {
             int receivedNotificationCode = intent.getIntExtra("Notification Code",-1);
             String receivedSongName = intent.getStringExtra("qqMusicName");
             String receivedArtistName = intent.getStringExtra("qqMuiscSinger");
-            /*byte[] bis = intent.getByteArrayExtra("albumCover");
-            Bitmap albumCover = BitmapFactory.decodeByteArray(bis, 0, bis.length);*/
-            updateView(receivedNotificationCode,receivedSongName,receivedArtistName);
+            int check0 = intent.getIntExtra("imgCheck0",-1);
+            byte[] byteArray = intent.getByteArrayExtra("albumCover");
+            if(byteArray.length != check0){
+                Log.i(TAG,byteArray.length+" not equal to "+check0);
+            }
+            Bitmap albumCover = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+            //Log.i(TAG,albumCover.getByteCount()+" byte");
+
+            updateView(receivedNotificationCode,receivedSongName,receivedArtistName,albumCover);
         }
     }
 
+    private Bitmap getCoverBitMap(String fName){
+        Bitmap bmp = null;
+        try {
+            FileInputStream is = this.openFileInput(fName);
+            bmp = BitmapFactory.decodeStream(is);
+            is.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if(bmp == null){
+            Log.i(TAG,"Output bitmap is NULL.");
+        }
+        return bmp;
+    }
 
     /**
      * Build Notification Listener Alert Dialog.

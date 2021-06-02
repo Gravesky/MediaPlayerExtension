@@ -3,9 +3,15 @@ package com.example.musicplayerexc;
 import android.app.AlertDialog;
 import android.app.Notification;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -18,6 +24,11 @@ import android.widget.ImageView;
 import android.widget.RemoteViews;
 import android.widget.TextView;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 
 public class MyNotificationListenerService extends NotificationListenerService {
@@ -32,6 +43,7 @@ public class MyNotificationListenerService extends NotificationListenerService {
     }
 
     private final String TAG = "[SERVICE-DEBUG] ";
+    private final String TAG1 = "[CLASS-NAME] ";
 
     @Override
     public boolean onUnbind(Intent intent) {
@@ -88,6 +100,9 @@ public class MyNotificationListenerService extends NotificationListenerService {
             if (sbn.getNotification().bigContentView != null) {
                 Log.i(TAG, "Matched notification found.");
                 ViewGroup view = (ViewGroup) sbn.getNotification().bigContentView.apply(this, null);
+                /*String pack = sbn.getPackageName();
+                Bundle extras = sbn.getNotification().extras;
+                int iconId = extras.getInt(Notification.EXTRA_SMALL_ICON);*/
                 extractInfoFromView(view, notificationCode);
             }
         }
@@ -110,7 +125,10 @@ public class MyNotificationListenerService extends NotificationListenerService {
                         if (activeNotifications[i].getNotification().bigContentView != null) {
                             Log.i(TAG, "Matched notification found.");
                             ViewGroup view = (ViewGroup) activeNotifications[i].getNotification().bigContentView.apply(this, null);
-                            extractInfoFromView(view,notificationCode);
+                            /*String pack = sbn.getPackageName();
+                            Bundle extras = sbn.getNotification().extras;
+                            int iconId = extras.getInt(Notification.EXTRA_SMALL_ICON);*/
+                            extractInfoFromView(view, notificationCode);
                             break;
                         }
                     }
@@ -136,28 +154,71 @@ public class MyNotificationListenerService extends NotificationListenerService {
         }
     }
 
-    private void extractInfoFromView(ViewGroup theView, int appCode){
+    private void extractInfoFromView(ViewGroup theView, int appCode/*, int iconId, String pName*/) {
         TextView txMusciName = (TextView) ((ViewGroup) theView.getChildAt(1)).getChildAt(0);
         TextView txMusicSinger = (TextView) ((ViewGroup) theView.getChildAt(1)).getChildAt(1);
-        /*CharSequence result = theView.getChildAt(1).getAccessibilityClassName();
-        Log.i(TAG,result.toString());
-        ImageView imgAlbumCover = (ImageView) theView.getChildAt(0);*/
-        /*int childCount = theView.getChildCount();
-        Log.i(TAG,"There are "+childCount+" child.");
-        for(int i = 0; i<childCount; i++){
-            theView.getChildAt(i);
-        }*/
-
         String  qqMusicName = (String) txMusciName.getText();
         String  qqMuiscSinger = (String) txMusicSinger.getText();
-        //Bitmap image = ((BitmapDrawable) imgAlbumCover.getDrawable()).getBitmap();
+
+        ImageView imgAlbumCover = (ImageView) ((ViewGroup) theView.getChildAt(0)).getChildAt(0);
+        //Log.i(TAG,((ViewGroup) theView.getChildAt(0)).getChildAt(0).getAccessibilityClassName().toString());
+        /*Drawable drawable = imgAlbumCover.getDrawable();
+        Bitmap bitmap = BitmapFactory.decodeResource(getResources(),drawable.getAlpha());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+        byte[] b = baos.toByteArray();*/
+
+        Drawable drawable = imgAlbumCover.getDrawable();
+        if(drawable == null){
+            Log.i(TAG,"NO DRAWABLE GET.");
+        }
+        else{
+            Log.i(TAG,"DRAWABLE GET.");
+        }
+        Bitmap bmp = convertToBitmap(drawable,200,200);
+        byte[] product = bitmap2ByteArray(bmp);
+        int check0 = product.length;
+        Log.i(TAG,"Sending "+check0+" bytes.");
+        //Log.i(TAG,"This img has "+image.getByteCount()+" byte.");
         // 此处因为这个服务比较特殊，拿到数据之后想要更新UI，则可以通过发广播的方式。
         Intent intent = new  Intent("com.example.musicplayerexc");
         intent.putExtra("Notification Code", appCode);
         intent.putExtra("qqMusicName", qqMusicName);
         intent.putExtra("qqMuiscSinger", qqMuiscSinger);
-        //intent.putExtra("albumCover", image);
+        intent.putExtra("imgCheck0", check0);
+        intent.putExtra("albumCover", product);
         sendBroadcast(intent);
+
+    }
+
+    //DDMS not working very well, so this stupid thing might provides some help.
+    //COUNT START DEFAULT AT 0
+    private void viewInspectRecur(ViewGroup v, int count){
+        int temp = count;
+        if(v.getChildCount() > 0){
+            for(int i = 0; i<v.getChildCount(); i++){
+                ViewGroup subChild = (ViewGroup) v.getChildAt(i);
+                CharSequence result = subChild.getChildAt(i).getAccessibilityClassName();
+                Log.i(TAG1,"Child at LAYER - "+temp+" index "+i+" is  "+result.toString());
+                viewInspectRecur(subChild, temp+1);
+            }
+        }
+    }
+
+    //Source:https://msol.io/blog/android/android-convert-drawable-to-bitmap/
+    public Bitmap convertToBitmap(Drawable drawable, int widthPixels, int heightPixels) {
+        Bitmap mutableBitmap = Bitmap.createBitmap(widthPixels, heightPixels, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(mutableBitmap);
+        drawable.setBounds(0, 0, widthPixels, heightPixels);
+        drawable.draw(canvas);
+
+        return mutableBitmap;
+    }
+
+    public byte[] bitmap2ByteArray(Bitmap bmp){
+        ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, bStream);
+        return bStream.toByteArray();
     }
 
 }
